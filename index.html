@@ -383,11 +383,26 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
 </div>
 <header>
   <div class="brand">
-    <div class="logo" style="background:linear-gradient(135deg,#0a0f1e,#101828);overflow:visible;position:relative"><svg width="46" height="46" viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0">
-  <defs><linearGradient id="wingGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#3ecf4f"/><stop offset="50%" stop-color="#e8a020"/><stop offset="100%" stop-color="#e05010"/></linearGradient></defs>
-  <path d="M6 38 C8 22, 18 10, 26 8 C20 18, 16 28, 18 38 Z" fill="url(#wingGrad)" opacity="0.95"/>
-  <path d="M10 38 C14 28, 22 20, 28 16 C25 24, 22 31, 22 38 Z" fill="#e8a020" opacity="0.7"/>
-  <text x="23" y="41" font-family="Arial Black,sans-serif" font-size="17" font-weight="900" fill="#00b4d8" letter-spacing="-1">JS</text>
+    <div class="logo" style="background:transparent;overflow:visible;position:relative;width:56px;height:46px"><svg width="56" height="46" viewBox="0 0 56 46" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0">
+  <defs>
+    <linearGradient id="wg1" x1="0%" y1="0%" x2="60%" y2="100%">
+      <stop offset="0%" stop-color="#4ecb3e"/>
+      <stop offset="45%" stop-color="#e8900a"/>
+      <stop offset="100%" stop-color="#d44010"/>
+    </linearGradient>
+    <linearGradient id="wg2" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#f0a020"/>
+      <stop offset="100%" stop-color="#c83010"/>
+    </linearGradient>
+  </defs>
+  <!-- 큰 날개 (초록→주황→빨강) -->
+  <path d="M2 44 C4 30 10 16 20 6 C16 18 13 30 15 44 Z" fill="url(#wg1)"/>
+  <!-- 작은 보조 날개 (주황→빨강) -->
+  <path d="M9 44 C13 32 19 22 26 14 C23 23 20 33 20 44 Z" fill="url(#wg2)" opacity="0.85"/>
+  <!-- 흰색 하이라이트 (날개 끝) -->
+  <path d="M15 43 L17 36 L18 43 Z" fill="white" opacity="0.6"/>
+  <!-- JS 텍스트 (굵고 파란색) -->
+  <text x="21" y="43" font-family="Arial Black,'Arial Bold',Impact,sans-serif" font-size="26" font-weight="900" fill="#00aaee" letter-spacing="-1">JS</text>
 </svg></div>
     <div>
       <h1>EUV / H2D 입고 일정 관리 시스템</h1>
@@ -434,11 +449,6 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
         <div class="chartbox"><canvas id="statusChart"></canvas></div>
       </div>
     </div>
-    <div class="panel">
-      <h2>⏰ 임박 입고 (30일 이내)</h2>
-      <div class="desc">오늘 기준 입고 예정일이 가까운 가공물 · <span class="urg red">7일↓ 긴급</span> · <span class="urg amber">14일↓ 주의</span></div>
-      <div class="tablewrap"><table id="urgentTable"><thead></thead><tbody></tbody></table></div>
-    </div>
     <!-- 입고캘린더 | 납품캘린더 -->
     <div class="grid2" style="grid-template-columns:1fr 1fr">
       <div class="panel">
@@ -465,6 +475,11 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
         </div>
         <div id="delCalGrid" style="width:100%"></div>
       </div>
+    </div>
+        <div class="panel">
+      <h2>⏰ 임박 입고 (30일 이내)</h2>
+      <div class="desc">오늘 기준 입고 예정일이 가까운 가공물 · <span class="urg red">7일↓ 긴급</span> · <span class="urg amber">14일↓ 주의</span></div>
+      <div class="tablewrap"><table id="urgentTable"><thead></thead><tbody></tbody></table></div>
     </div>
   </section>
 
@@ -1378,6 +1393,8 @@ function renderSchedule(){
     const ddCls=d==null?'':d<0?'red':d<=7?'red':d<=14?'amber':'green';
     const ddTxt=d==null?'-':(d<0?`D+${-d}`:`D-${d}`);
     const histN=(DB.histories[k]||[]).length;
+    // 가공업체 체크박스 변경 즉시 반영되도록 매번 재계산
+    const _vc=vendorCandidates(i.item,i.type,i.spec);i.vendorList=_vc.list;i.vendorKey=_vc.key;
     // 납품 D-DAY
     const ddd=daysFromToday(parseDate(i.delivery));
     const dddCls=ddd==null?'':ddd<0?'red':ddd<=7?'red':ddd<=14?'amber':'green';
@@ -1406,9 +1423,19 @@ function renderSchedule(){
         : `<span class="tag ${i.type.toLowerCase()}">${i.type}</span> <span class="badge-del">삭제됨${i.removedAt?' '+i.removedAt:''}</span>`)
       : (i.isNew?`<span class="tag ${i.type.toLowerCase()}">${i.type}</span> <span class="badge-new">NEW</span>`:`<span class="tag ${i.type.toLowerCase()}">${i.type}</span>`);
     const statusDisp = i.removed ? (i.completedExit?`<span class="badge build" style="background:var(--ok)">납품완료</span>`:`<span class="badge not">—</span>`) : statusCell;
+    // 히스토리 누적 일수 변동 계산
+    const _histDiff=(()=>{
+      const h=(DB.histories[k]||[]).filter(e=>/^\d{4}-\d{2}-\d{2}$/.test(e.old||'')&&/^\d{4}-\d{2}-\d{2}$/.test(e.new||''));
+      if(!h.length)return null;
+      let total=0;h.forEach(e=>{total+=Math.round((new Date(e.new)-new Date(e.old))/(1000*60*60*24));});
+      return total;
+    })();
+    const _histBadgeTxt=_histDiff==null?'':_histDiff>0
+      ?`<span style="font-size:9px;color:var(--danger);margin-left:2px;font-weight:700">+${_histDiff}일</span>`
+      :_histDiff<0?`<span style="font-size:9px;color:var(--ok);margin-left:2px;font-weight:700">${_histDiff}일</span>`:'';
     const arrivalCell = i.removed
       ? `<span style="color:var(--dim)">${i.arrival}</span>`
-      : `<input class="dt-edit ${i.arrivalEdited?'edited':''}${i.staleArrival?' stale':''}" type="date" data-k="${k}" value="${i.arrival}"><span class="edit-mark" data-hk="${k}" title="수정 히스토리 ${histN}건">${i.arrivalEdited?' ✎':''}${histN?`<span class="hcnt">${histN}</span>`:''}</span>${i.arrivalEdited?`<span class="restore" data-rk="${k}" title="기본값으로 복구">↺</span>`:''}${i.staleArrival?`<span class="stale-flag" data-sk="${k}" title="forecast 기준 입고일이 ${i.staleFrom}→${i.staleTo} 로 변경됨. 클릭 시 기준값(${i.staleTo})으로 갱신">⚠기준변동</span>`:''}`;
+      : `<input class="dt-edit ${i.arrivalEdited?'edited':''}${i.staleArrival?' stale':''}" type="date" data-k="${k}" value="${i.arrival}"><span class="edit-mark" data-hk="${k}" title="수정 히스토리 ${histN}건">${i.arrivalEdited?' ✎':''}${histN?`<span class="hcnt">${histN}</span>`:''}</span>${_histBadgeTxt}${i.arrivalEdited?`<span class="restore" data-rk="${k}" title="기본값으로 복구">↺</span>`:''}${i.staleArrival?`<span class="stale-flag" data-sk="${k}" title="forecast 기준 입고일이 ${i.staleFrom}→${i.staleTo} 로 변경됨. 클릭 시 기준값(${i.staleTo})으로 갱신">⚠기준변동</span>`:''}`;
     const vendorCell = i.removed ? `<span style="color:var(--dim)">${i.vendor||'-'}</span>` : `<select class="vsel" data-k="${k}"${noVendor}>${vendorOpts}</select>`;
     return `<tr class="${rowCls}">
       <td>${tagCell}</td>

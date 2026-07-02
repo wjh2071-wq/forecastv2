@@ -1440,7 +1440,7 @@ function renderUrgent(items){
   const tb=t.querySelector('tbody');
   const all=items.map(i=>({...i,d:daysFromToday(parseDate(i.arrival))})).filter(i=>i.d!=null&&i.d>=0&&i.d<=30);
   if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:30px">표시할 항목 없음</td></tr>';bindFilterButtons(tid,(c)=>all.map(i=>String(uval(i,c))));return;}
-  tb.innerHTML=list.map(i=>{const cls=i.d<=7?'red':i.d<=14?'amber':'green';const k=i.tag+'||'+i.item+'||'+i.type;return `<tr class="${i.status==='납품완료'?'done':''}"><td><span class="tag ${i.type.toLowerCase()}">${i.type}</span></td><td>${i.spec||'-'}</td><td>${i.tag}</td><td>${i.arrival}</td><td class="urg ${cls}">D-${i.d}</td><td>${i.frame}</td><td>${statusBadge(i.status)}</td><td><input class="note-inp" type="text" maxlength="20" data-k="${k}" value="${esc(i.note)}" placeholder="메모 (20자)"></td></tr>`;}).join('');
+  tb.innerHTML=list.map(i=>{const cls=i.d<=7?'red':i.d<=14?'amber':'green';const k=i.tag+'||'+i.item+'||'+i.type;return `<tr class="${i.status==='납품완료'?'done':''}"><td><span class="tag ${i.type.toLowerCase()}">${i.type}</span></td><td>${i.spec||'-'}</td><td>${i.tag}</td><td>${i.arrival}</td><td class="urg ${cls}">D-${i.d}</td><td>${i.frame}</td><td>${statusBadge(i.status)}</td><td><input class="note-inp" type="text" maxlength="50" data-k="${k}" value="${esc(i.note)}" placeholder="메모 (50자)"></td></tr>`;}).join('');
   bindFilterButtons(tid,(c)=>all.map(i=>String(uval(i,c))));
   tb.querySelectorAll('.note-inp').forEach(inp=>{inp.oninput=()=>setManual(inp.dataset.k,{note:inp.value});});
 }
@@ -1483,9 +1483,19 @@ function renderSchedule(){
     const dddCls=ddd==null?'':ddd<0?'red':ddd<=7?'red':ddd<=14?'amber':'green';
     const dddTxt=ddd==null?'-':(ddd<0?`D+${-ddd}`:`D-${ddd}`);
     const delivHistN=(DB.histories[k]||[]).filter(h=>h.field==='납품일정').length;
+    // 납품일정 히스토리 누적 일수 변동 계산
+    const _delHistDiff=(()=>{
+      const h=(DB.histories[k]||[]).filter(e=>e.field==='납품일정'&&/^\d{4}-\d{2}-\d{2}$/.test(e.old||'')&&/^\d{4}-\d{2}-\d{2}$/.test(e.new||''));
+      if(!h.length)return null;
+      let total=0;h.forEach(e=>{total+=Math.round((new Date(e.new)-new Date(e.old))/(1000*60*60*24));});
+      return total;
+    })();
+    const _delBadgeTxt=_delHistDiff==null?'':_delHistDiff>0
+      ?`<span style="font-size:9px;color:var(--danger);margin-left:2px;font-weight:700">+${_delHistDiff}일</span>`
+      :_delHistDiff<0?`<span style="font-size:9px;color:var(--ok);margin-left:2px;font-weight:700">${_delHistDiff}일</span>`:'';
     const deliveryCell=i.removed
       ?`<span style="color:var(--dim)">${i.delivery||'-'}</span>`
-      :`<input class="dt-delivery ${i.deliveryEdited?'edited':''}" type="date" data-k="${k}" value="${i.delivery||''}">${i.deliveryEdited?`<span class="restore-delivery" data-rk="${k}" title="기본값 복구">↺</span>`:''}${delivHistN?`<span class="hcnt">${delivHistN}</span>`:''}`;
+      :`<input class="dt-delivery ${i.deliveryEdited?'edited':''}" type="date" data-k="${k}" value="${i.delivery||''}"><span class="edit-mark" data-hk="${k}" title="납품일정 히스토리 ${delivHistN}건">${i.deliveryEdited?' ✎':''}${delivHistN?`<span class="hcnt">${delivHistN}</span>`:''}</span>${_delBadgeTxt}${i.deliveryEdited?`<span class="restore-delivery" data-rk="${k}" title="기본값 복구">↺</span>`:''}`;
     const vendorOpts=['<option value="">선택</option>',...i.vendorList.map(v=>`<option value="${esc(v)}" ${i.vendor===v?'selected':''}>${esc(v)}</option>`)].join('');
     const noVendor=i.vendorList.length===0?' title="경험 업체 없음"':'';
     const STATUS_OPTS=['가공물 제작','가공물 입고','elec assy','제작완료','납품완료'];
@@ -1529,7 +1539,7 @@ function renderSchedule(){
       <td class="urg ${dddCls}">${dddTxt}</td>
       <td>${vendorCell}</td>
       <td style="text-align:center">${poCell}</td>
-      <td><input class="note-inp" type="text" maxlength="20" data-k="${k}" value="${esc(i.note)}" placeholder="메모 (20자)"></td>
+      <td><input class="note-inp" type="text" maxlength="50" data-k="${k}" value="${esc(i.note)}" placeholder="메모 (50자)"></td>
     </tr>`;
   }).join('')||'<tr><td colspan="11" style="text-align:center;color:var(--dim);padding:30px">조건에 맞는 항목 없음</td></tr>';
   document.getElementById('schCount').textContent=`${rows.length}건 (활성 ${rows.filter(r=>!r.removed).length} · 삭제 ${rows.filter(r=>r.removed).length})`;

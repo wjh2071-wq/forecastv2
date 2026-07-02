@@ -347,43 +347,53 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   @media print {
     @page { size: A4 landscape; margin: 8mm; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-    body { background: #fff !important; color: #222 !important; font-size: 11px; }
-    body.light, body { --bg:#fff; --panel:#fff; --panel2:#f5f5f5; --ink:#222; --muted:#666; --line:#ddd; --dim:#999; --accent:#1a73e8; }
+    body { background: #fff !important; color: #222 !important; font-size: 10px; margin: 0; padding: 0; }
+    body, body.light { --bg:#fff; --panel:#fff; --panel2:#f5f5f5; --ink:#222; --muted:#555; --line:#ccc; --dim:#888; --accent:#1a73e8; }
     /* 인쇄 시 숨길 요소 */
-    header .toolbar, #pinGate, .toast, .modal, .tab, nav.tabs,
+    header .toolbar, #pinGate, .toast, .modal, nav.tabs,
     .btn, button, input[type="file"], select, .note-inp,
     .dt-edit, .dt-delivery, .edit-mark, .restore, .restore-delivery, .stale-flag,
-    .ssel, .vsel { display: none !important; }
-    .print-val { display: inline !important; }
+    .ssel, .vsel, .footnote, .tab { display: none !important; }
+    .print-val { display: inline !important; font-size: 10px; }
     /* 헤더 간소화 */
-    header { padding: 8px 12px; border-bottom: 2px solid #333; background: #fff !important; }
-    .sub { font-size: 9px; }
-    /* 모든 섹션 보이기 (현재 탭만) */
-    section.view { display: none !important; }
-    section.view.active { display: block !important; }
-    /* 레이아웃 */
-    main { padding: 8px; }
-    .grid2 { grid-template-columns: 1fr 1fr !important; gap: 10px; }
-    .cards { grid-template-columns: repeat(4, 1fr); gap: 6px; }
-    .card { padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
-    .card .val { font-size: 18px; }
-    .card .lbl { font-size: 9px; }
-    .panel { padding: 10px; border: 1px solid #ddd; border-radius: 8px; page-break-inside: avoid; margin-bottom: 8px; }
-    .chartbox { height: 200px; }
-    /* 캘린더 */
-    .cal-table { font-size: 9px; }
-    .cal-cell { min-height: 40px; border-color: #ccc; }
-    .cal-chip { font-size: 8px; }
-    /* 테이블 */
-    table { font-size: 10px; border-collapse: collapse; width: 100%; }
-    th, td { padding: 4px 6px; border-bottom: 1px solid #ddd; }
-    th { background: #f0f0f0; font-weight: 700; }
-    /* 입고일정표 - 날짜값 표시 (input 숨기고 텍스트로) */
-    td .dt-edit, td .dt-delivery { display: none !important; }
-    /* 인쇄 제목 */
-    .print-title { display: block !important; text-align: center; font-size: 14px; font-weight: 700; margin: 8px 0; }
+    header { padding: 6px 10px; border-bottom: 2px solid #333; background: #fff !important; margin: 0; }
+    .sub { font-size: 8px; }
     /* 로고 */
     .logo img { mix-blend-mode: normal !important; }
+    .logo { width: 40px; height: 32px; }
+    h1 { font-size: 15px; }
+    /* 현재 탭만 표시 */
+    section.view { display: none !important; }
+    section.view.active { display: block !important; }
+    /* 레이아웃 - 공백 제거 */
+    main { padding: 4px 8px; margin: 0; }
+    /* 그리드 */
+    .grid2 { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+    /* 카드 */
+    .cards { grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; }
+    .card { padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; }
+    .card .val { font-size: 16px; }
+    .card .lbl { font-size: 8px; }
+    .card .meta { font-size: 7px; }
+    /* 차트 패널 */
+    .panel { padding: 8px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 6px; }
+    .chartbox { height: 220px; min-height: 220px; }
+    #statusChart { height: 220px !important; }
+    .desc { font-size: 8px; }
+    h2 { font-size: 12px; }
+    /* 캘린더 */
+    .cal-table { font-size: 8px; }
+    .cal-cell { min-height: 32px; border-color: #ccc; padding: 2px; }
+    .cal-chip { font-size: 7px; padding: 1px 2px; }
+    .cal-day-num { font-size: 9px; }
+    /* ★ 테이블: max-height 해제 → 전체 출력 */
+    .tablewrap { max-height: none !important; overflow: visible !important; }
+    table { font-size: 9px; border-collapse: collapse; width: 100%; page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+    th, td { padding: 3px 5px; border: 1px solid #ddd; }
+    th { background: #f0f0f0 !important; font-weight: 700; font-size: 8px; }
+    /* 입고일정표 input 숨기고 텍스트 표시 */
+    td .dt-edit, td .dt-delivery { display: none !important; }
   }
   .print-title { display: none; }
 
@@ -523,16 +533,6 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
       <div class="tablewrap" style="max-height:640px"><table id="schTable"><thead></thead><tbody></tbody></table></div>
     </div>
     <div class="footnote" id="schNote"></div>
-    <!-- 대시보드 명칭 편집 -->
-    <div class="panel">
-      <h2>🏷 대시보드 명칭 편집</h2>
-      <div class="desc">제목·탭·카드 이름을 변경하면 즉시 반영됩니다. 비워두면 기본값 사용.</div>
-      <div id="labelGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn primary sm" id="saveLabels">💾 명칭 저장</button>
-        <button class="btn ghost sm" id="resetLabels">↺ 기본값으로</button>
-      </div>
-    </div>
   </section>
 
   <!-- CHANGES -->
@@ -605,7 +605,17 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
       <div class="tablewrap" style="max-height:420px"><table id="vendorTable"><thead></thead><tbody></tbody></table></div>
       <div class="footnote">품목 열은 Item number(예: NKB943000) 또는 H2D 사양(예: H2D-HPD)을 키로 씁니다. 입고 항목의 Item number가 열에 있으면 그 열로, 없으면 H2D 사양 열로 매칭됩니다.</div>
     </div>
-  </section>
+      <!-- 대시보드 명칭 편집 -->
+    <div class="panel">
+      <h2>🏷 대시보드 명칭 편집</h2>
+      <div class="desc">제목·탭·카드 이름을 변경하면 즉시 반영됩니다. 비워두면 기본값 사용.</div>
+      <div id="labelGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn primary sm" id="saveLabels">💾 명칭 저장</button>
+        <button class="btn ghost sm" id="resetLabels">↺ 기본값으로</button>
+      </div>
+    </div>
+</section>
 
   <!-- HISTORY -->
   <section class="view" id="history">

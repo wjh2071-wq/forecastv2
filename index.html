@@ -385,9 +385,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     /* ★ 차트/캘린더 좌우 배치 + 겹침 방지 */
     .grid2 { grid-template-columns: 1fr 1fr !important; gap: 8px !important; display: grid !important; align-items: start; }
     .grid2 > .panel { min-width: 0; max-width: 100%; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
-    .chartbox { height: 220px !important; max-height: 220px !important; min-height: 220px !important; overflow: hidden !important; position: relative; width: 100% !important; display: block; }
-    .chartbox canvas { max-height: 220px !important; height: 220px !important; max-width: 100% !important; width: 100% !important; display: block !important; box-sizing: border-box; }
-    #monthChart, #statusChart { height: 220px !important; max-height: 220px !important; max-width: 100% !important; width: 100% !important; }
+    .chartbox { height: 420px !important; max-height: 420px !important; min-height: 420px !important; overflow: hidden !important; position: relative; width: 100% !important; display: block; }
+    .chartbox canvas { max-height: 420px !important; height: 420px !important; max-width: 100% !important; width: 100% !important; display: block !important; box-sizing: border-box; }
+    #monthChart, #statusChart { height: 420px !important; max-height: 420px !important; max-width: 100% !important; width: 100% !important; }
     .desc { font-size: 8px; }
     h2 { font-size: 12px; }
     /* 캘린더 */
@@ -674,6 +674,7 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
 
 <script>
 const STORE_KEY='jsForecastSys_v4';
+let PRINT_MODE=false;
 const STORE_KEY_OLD='jsForecastSys_v3';
 const MS=86400000;
 let DB=load();
@@ -1324,14 +1325,14 @@ function drawMonthChart(items){
   const grid=cssv('--line'),tick=cssv('--muted'),ink=cssv('--ink');
   const ctx=document.getElementById('monthChart');if(monthChart)monthChart.destroy();
   const valueLabels={id:'valueLabels',afterDatasetsDraw(c){
-    const{ctx}=c;ctx.save();ctx.font='700 11px Segoe UI';ctx.textAlign='center';
+    const{ctx}=c;ctx.save();ctx.font=PRINT_MODE?'800 18px Segoe UI':'700 11px Segoe UI';ctx.textAlign='center';
     c.data.datasets.forEach((ds,di)=>{const meta=c.getDatasetMeta(di);meta.data.forEach((bar,idx)=>{const v=ds.data[idx];if(!v)return;ctx.fillStyle='#1a1a1a';ctx.fillText(v,bar.x,bar.y+(bar.height/2)+4);});});
     ctx.fillStyle=ink;ctx.font='800 12px Segoe UI';
     labels.forEach((l,idx)=>{const tot=months[l].EUV+months[l].H2D;if(!tot)return;const m0=c.getDatasetMeta(0).data[idx],m1=c.getDatasetMeta(1).data[idx];const topY=Math.min(m0?m0.y:9999,m1?m1.y:9999);const x=(m0||m1).x;ctx.fillText(tot,x,topY-6);});
     ctx.restore();
   }};
   monthChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'EUV',data:labels.map(l=>months[l].EUV),backgroundColor:cssv('--euv')},{label:'H2D',data:labels.map(l=>months[l].H2D),backgroundColor:cssv('--h2d')}]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{display:false}},scales:{x:{stacked:true,grid:{color:grid},ticks:{color:tick}},y:{stacked:true,grid:{color:grid},ticks:{color:tick,stepSize:1}}}},plugins:[valueLabels]});
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{display:false}},scales:{x:{stacked:true,grid:{color:grid},ticks:{color:tick,font:{size:PRINT_MODE?14:11}}},y:{stacked:true,grid:{color:grid},ticks:{color:tick,stepSize:1,font:{size:PRINT_MODE?14:11}}}}},plugins:[valueLabels]});
 }
 function drawStatusChart(items){
   const order=['Not Start','가공물 제작','가공물 입고','elec assy','제작완료','납품완료','Shortage'];
@@ -1368,8 +1369,8 @@ function drawStatusChart(items){
       const tx=right?ex+5:ex-5;
       const topY=Math.max(14,my-7);const botY=Math.min(c.canvas.height-4,topY+14);
       ctx.textAlign=right?'left':'right';
-      ctx.font='700 11px Segoe UI';ctx.fillStyle=col;ctx.fillText(lbl,tx,topY);
-      ctx.font='600 11px Segoe UI';ctx.fillStyle=ink;ctx.fillText(`${v}건 (${pct}%)`,tx,botY);
+      ctx.font=PRINT_MODE?'800 15px Segoe UI':'700 11px Segoe UI';ctx.fillStyle=col;ctx.fillText(lbl,tx,topY);
+      ctx.font=PRINT_MODE?'700 14px Segoe UI':'600 11px Segoe UI';ctx.fillStyle=ink;ctx.fillText(`${v}건 (${pct}%)`,tx,botY);
     });
     ctx.restore();
   }};
@@ -1386,7 +1387,7 @@ function drawStatusChart(items){
     statusCanvas.style.cursor=pts.length?'pointer':'default';
   };
   const isMobile=window.innerWidth<=820;
-  const padXY=isMobile?38:80;const padTB=isMobile?28:40;
+  const padXY=PRINT_MODE?110:(isMobile?38:80);const padTB=PRINT_MODE?50:(isMobile?28:40);
   statusChart=new Chart(ctx,{type:'doughnut',
     data:{labels:labels.map((l,i)=>`${l} (${data[i]})`),datasets:[{data,backgroundColor:labels.map(l=>colors[l]||cssv('--euv')),borderColor:panel,borderWidth:2}]},
     options:{responsive:true,maintainAspectRatio:false,layout:{padding:{left:padXY,right:padXY,top:padTB,bottom:padTB}},cutout:'58%',
@@ -2150,18 +2151,20 @@ document.getElementById('printBtn').onclick=()=>{
 // 인쇄 직전/직후 차트 리사이즈 (겹침 방지 핵심)
 window.addEventListener('beforeprint',()=>{
   try{
+    PRINT_MODE=true;
+    // 차트를 인쇄용 큰 폰트로 재생성
+    const s=current();
+    if(s){const items=liveItems().filter(i=>!i.removed);drawMonthChart(items);drawStatusChart(items);}
     [monthChart,statusChart].forEach(ch=>{
-      if(ch){
-        ch.options.maintainAspectRatio=false;
-        ch.options.animation=false;
-        ch.resize();
-        ch.update('none');
-      }
+      if(ch){ch.options.maintainAspectRatio=false;ch.options.animation=false;ch.resize();ch.update('none');}
     });
   }catch(_){}
 });
 window.addEventListener('afterprint',()=>{
   try{
+    PRINT_MODE=false;
+    const s=current();
+    if(s){const items=liveItems().filter(i=>!i.removed);drawMonthChart(items);drawStatusChart(items);}
     [monthChart,statusChart].forEach(ch=>{if(ch){ch.resize();ch.update('none');}});
   }catch(_){}
 });

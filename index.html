@@ -382,14 +382,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     /* 차트 패널 */
     .panel { padding: 8px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 6px; page-break-inside: avoid; }
     /* ★ 차트 겹침 방지 - 월별/진행상태를 세로로 쌓아 각각 충분한 공간 확보 */
-    .overview-charts, .grid2 { grid-template-columns: 1fr !important; gap: 10px; }
-    .chartbox { height: 260px !important; max-height: 260px !important; min-height: 260px !important; overflow: visible !important; position: relative; width: 100% !important; display: block; }
-    .chartbox canvas { max-height: 260px !important; height: 260px !important; width: 100% !important; display: block !important; box-sizing: border-box; }
-    #monthChart, #statusChart { height: 260px !important; max-height: 260px !important; max-width: 100% !important; }
+    /* ★ 차트/캘린더 좌우 배치 + 겹침 방지 */
+    .grid2 { grid-template-columns: 1fr 1fr !important; gap: 8px !important; display: grid !important; align-items: start; }
+    .grid2 > .panel { min-width: 0; max-width: 100%; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+    .chartbox { height: 220px !important; max-height: 220px !important; min-height: 220px !important; overflow: hidden !important; position: relative; width: 100% !important; display: block; }
+    .chartbox canvas { max-height: 220px !important; height: 220px !important; max-width: 100% !important; width: 100% !important; display: block !important; box-sizing: border-box; }
+    #monthChart, #statusChart { height: 220px !important; max-height: 220px !important; max-width: 100% !important; width: 100% !important; }
     .desc { font-size: 8px; }
     h2 { font-size: 12px; }
     /* 캘린더 */
-    .cal-table { font-size: 8px; }
+    .cal-table { font-size: 8px; table-layout: fixed; width: 100%; }
     .cal-cell { min-height: 32px; border-color: #ccc; padding: 2px; }
     .cal-chip { font-size: 7px; padding: 1px 2px; }
     .cal-day-num { font-size: 9px; }

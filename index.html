@@ -374,11 +374,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     /* 그리드 */
     .grid2 { grid-template-columns: 1fr 1fr !important; gap: 8px; }
     /* 카드 */
-    .cards { grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; }
-    .card { padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; }
-    .card .val { font-size: 16px; }
-    .card .lbl { font-size: 8px; }
-    .card .meta { font-size: 7px; }
+    .cards { grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 6px; }
+    .card { padding: 4px 6px; border: 1px solid #ccc; border-radius: 5px; }
+    .card .val { font-size: 14px; margin-top: 2px; }
+    .card .lbl { font-size: 7px; }
+    .card .meta { font-size: 6px; }
+    .card button { display: none !important; }
     /* 차트 패널 */
     .panel { padding: 8px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 6px; page-break-inside: avoid; }
     /* 입고 일정표 테이블 패널: 여러 페이지에 걸쳐 나눠지도록 avoid 해제 */
@@ -389,13 +390,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     /* ★ 차트/캘린더 좌우 배치 + 겹침 방지 */
     .grid2 { grid-template-columns: 1fr 1fr !important; gap: 8px !important; display: grid !important; align-items: start; }
     .grid2 > .panel { min-width: 0; max-width: 100%; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
-    .chartbox { height: 420px !important; max-height: 420px !important; min-height: 420px !important; overflow: hidden !important; position: relative; width: 100% !important; display: block; }
-    .chartbox canvas { max-height: 420px !important; height: 420px !important; max-width: 100% !important; width: 100% !important; display: block !important; box-sizing: border-box; }
-    #monthChart { height: 420px !important; max-height: 420px !important; max-width: 100% !important; width: 100% !important; }
+    .chartbox { height: 300px !important; max-height: 300px !important; min-height: 300px !important; overflow: hidden !important; position: relative; width: 100% !important; display: block; }
+    .chartbox canvas { max-height: 300px !important; height: 300px !important; max-width: 100% !important; width: 100% !important; display: block !important; box-sizing: border-box; }
+    #monthChart { height: 300px !important; max-height: 300px !important; max-width: 100% !important; width: 100% !important; }
     /* ★ 도넛은 정사각형 영역에서 그려 원형 유지 */
-    .statusbox { height: 360px !important; max-height: 360px !important; min-height: 360px !important; width: 360px !important; max-width: 360px !important; margin: 0 auto !important; overflow: visible !important; }
-    .statusbox canvas { height: 360px !important; max-height: 360px !important; width: 360px !important; max-width: 360px !important; margin: 0 auto; aspect-ratio: 1/1 !important; }
-    #statusChart { height: 360px !important; max-height: 360px !important; width: 360px !important; max-width: 360px !important; aspect-ratio: 1/1 !important; }
+    .statusbox { height: 300px !important; max-height: 300px !important; min-height: 300px !important; width: 300px !important; max-width: 300px !important; margin: 0 auto !important; overflow: visible !important; }
+    .statusbox canvas { height: 300px !important; max-height: 300px !important; width: 300px !important; max-width: 300px !important; margin: 0 auto; aspect-ratio: 1/1 !important; }
+    #statusChart { height: 300px !important; max-height: 300px !important; width: 300px !important; max-width: 300px !important; aspect-ratio: 1/1 !important; }
     .desc { font-size: 8px; }
     h2 { font-size: 12px; }
     /* 캘린더 */
@@ -2192,28 +2193,41 @@ document.getElementById('printBtn').onclick=()=>{
     ps.textContent='@media print{.print-val{display:inline!important}}';
     document.head.appendChild(ps);
   }
-  window.print();
+  // 2) 현재 대시보드 탭이면 차트를 인쇄용으로 미리 준비 후 인쇄
+  const isOverview=document.getElementById('overview').classList.contains('active');
+  if(isOverview){
+    PRINT_MODE=true;
+    const cs=current();
+    if(cs){const items=liveItems().filter(i=>!i.removed);drawMonthChart(items);drawStatusChart(items);}
+    if(monthChart){monthChart.options.maintainAspectRatio=false;monthChart.resize();monthChart.update('none');}
+    if(statusChart){
+      const cv=document.getElementById('statusChart');
+      statusChart.options.responsive=false;statusChart.options.maintainAspectRatio=true;statusChart.options.aspectRatio=1;
+      cv.width=300;cv.height=300;cv.style.width='300px';cv.style.height='300px';
+      statusChart.resize(300,300);statusChart.update('none');
+    }
+    // 차트 렌더 완료 대기 후 인쇄
+    setTimeout(()=>{window.print();},350);
+  } else {
+    window.print();
+  }
 };
 // 인쇄 직전/직후 차트 리사이즈 (겹침 방지 핵심)
 window.addEventListener('beforeprint',()=>{
   try{
     PRINT_MODE=true;
-    // 차트를 인쇄용 큰 폰트로 재생성
     const s=current();
     if(s){const items=liveItems().filter(i=>!i.removed);drawMonthChart(items);drawStatusChart(items);}
-    // 월별차트: 종횡비 자유
     if(monthChart){monthChart.options.maintainAspectRatio=false;monthChart.options.animation=false;monthChart.resize();monthChart.update('none');}
-    // 도넛차트: responsive 끄고 캔버스를 정사각형으로 완전 고정 (왜곡 방지)
     if(statusChart){
       const cv=document.getElementById('statusChart');
       statusChart.options.responsive=false;
       statusChart.options.maintainAspectRatio=true;
       statusChart.options.aspectRatio=1;
       statusChart.options.animation=false;
-      // 캔버스 버퍼와 표시 크기 모두 정사각형으로 강제
-      cv.width=360;cv.height=360;
-      cv.style.width='360px';cv.style.height='360px';
-      statusChart.resize(360,360);
+      cv.width=300;cv.height=300;
+      cv.style.width='300px';cv.style.height='300px';
+      statusChart.resize(300,300);
       statusChart.update('none');
     }
   }catch(_){}

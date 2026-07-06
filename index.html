@@ -381,13 +381,21 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     .card .meta { font-size: 7px; }
     /* 차트 패널 */
     .panel { padding: 8px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 6px; page-break-inside: avoid; }
+    /* 입고 일정표 테이블 패널: 여러 페이지에 걸쳐 나눠지도록 avoid 해제 */
+    #schedule .panel { page-break-inside: auto !important; break-inside: auto !important; border: none; padding: 0; }
+    #schedule .filters { margin-bottom: 6px; }
+    #schedule.view.active { padding-top: 0 !important; margin-top: 0 !important; }
     /* ★ 차트 겹침 방지 - 월별/진행상태를 세로로 쌓아 각각 충분한 공간 확보 */
     /* ★ 차트/캘린더 좌우 배치 + 겹침 방지 */
     .grid2 { grid-template-columns: 1fr 1fr !important; gap: 8px !important; display: grid !important; align-items: start; }
     .grid2 > .panel { min-width: 0; max-width: 100%; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
     .chartbox { height: 420px !important; max-height: 420px !important; min-height: 420px !important; overflow: hidden !important; position: relative; width: 100% !important; display: block; }
     .chartbox canvas { max-height: 420px !important; height: 420px !important; max-width: 100% !important; width: 100% !important; display: block !important; box-sizing: border-box; }
-    #monthChart, #statusChart { height: 420px !important; max-height: 420px !important; max-width: 100% !important; width: 100% !important; }
+    #monthChart { height: 420px !important; max-height: 420px !important; max-width: 100% !important; width: 100% !important; }
+    /* ★ 도넛은 정사각형 영역에서 그려 원형 유지 */
+    .statusbox { height: 360px !important; max-height: 360px !important; min-height: 360px !important; width: 360px !important; max-width: 360px !important; margin: 0 auto !important; overflow: visible !important; }
+    .statusbox canvas { height: 360px !important; max-height: 360px !important; width: 360px !important; max-width: 360px !important; margin: 0 auto; aspect-ratio: 1/1 !important; }
+    #statusChart { height: 360px !important; max-height: 360px !important; width: 360px !important; max-width: 360px !important; aspect-ratio: 1/1 !important; }
     .desc { font-size: 8px; }
     h2 { font-size: 12px; }
     /* 캘린더 */
@@ -396,9 +404,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     .cal-chip { font-size: 7px; padding: 1px 2px; }
     .cal-day-num { font-size: 9px; }
     /* ★ 테이블: max-height 해제 → 전체 출력 */
-    .tablewrap { max-height: none !important; overflow: visible !important; }
+    .tablewrap { max-height: none !important; overflow: visible !important; height: auto !important; }
     table { font-size: 9px; border-collapse: collapse; width: 100%; page-break-inside: auto; }
-    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    tbody { display: table-row-group; }
+    thead th { position: static !important; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
     th, td { padding: 3px 5px; border: 1px solid #ddd; }
     th { background: #f0f0f0 !important; font-weight: 700; font-size: 8px; }
     /* 입고일정표 input 숨기고 텍스트 표시 */
@@ -491,7 +502,7 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
       <div class="panel">
         <h2>🏷 진행 상태 분포</h2>
         <div class="desc">미발주=Not Start, 발주=제작중/납품완료 · <span style="color:var(--danger);font-weight:700">Shortage</span>=입고예정일 경과(미납품)</div>
-        <div class="chartbox"><canvas id="statusChart"></canvas></div>
+        <div class="chartbox statusbox"><canvas id="statusChart"></canvas></div>
       </div>
     </div>
     <!-- 입고캘린더 | 납품캘린더 -->
@@ -1353,24 +1364,57 @@ function drawStatusChart(items){
   const leaderLabels={id:'leaderLabels',afterDatasetsDraw(c){
     const{ctx,chartArea}=c;const meta=c.getDatasetMeta(0);if(!total)return;
     ctx.save();ctx.textBaseline='middle';
+    const lineH=PRINT_MODE?32:26; // 라벨 한 세트(2줄) 높이
+    const cx=meta.data.length?meta.data[0].x:(chartArea.left+chartArea.right)/2;
+    const cy=meta.data.length?meta.data[0].y:(chartArea.top+chartArea.bottom)/2;
+    // 1) 각 조각 정보 수집 (각도 순)
+    const pts=[];
     meta.data.forEach((arc,idx)=>{
       const v=data[idx];if(!v)return;
       const ang=(arc.startAngle+arc.endAngle)/2;
       const or=arc.outerRadius;
-      const sx=arc.x+Math.cos(ang)*(or-4),sy=arc.y+Math.sin(ang)*(or-4);
-      const mx=arc.x+Math.cos(ang)*(or+12),my=arc.y+Math.sin(ang)*(or+12);
-      const right=mx>=arc.x;
-      const ex=right?mx+16:mx-16;
-      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(mx,my);ctx.lineTo(ex,my);
+      pts.push({idx,ang,or,arc,v,
+        sx:arc.x+Math.cos(ang)*(or-4),sy:arc.y+Math.sin(ang)*(or-4),
+        right:Math.cos(ang)>=0,
+        idealY:arc.y+Math.sin(ang)*(or+18)});
+    });
+    // 2) 좌/우 그룹으로 나눠 세로 겹침 제거
+    ['right','left'].forEach(side=>{
+      const group=pts.filter(p=>side==='right'?p.right:!p.right).sort((a,b)=>a.idealY-b.idealY);
+      // 위에서부터 최소 간격(lineH) 확보
+      for(let i=1;i<group.length;i++){
+        if(group[i].idealY-group[i-1].idealY<lineH){
+          group[i].idealY=group[i-1].idealY+lineH;
+        }
+      }
+      // 캔버스 아래로 넘치면 위로 밀어올림
+      const H=c.canvas.height;
+      let overflow=group.length?group[group.length-1].idealY-(H-8):0;
+      if(overflow>0){group.forEach(p=>p.idealY-=overflow);}
+      group.forEach(p=>{if(p.idealY<14)p.idealY=14;});
+      group.forEach(p=>p.finalY=p.idealY);
+    });
+    // 3) 그리기
+    pts.forEach(p=>{
+      const or=p.or;
+      const mx=p.arc.x+Math.cos(p.ang)*(or+12);
+      const ex=p.right?cx+or+30:cx-or-30;
+      const ty=p.finalY;
+      // 리더선: 조각 → 꺾임 → 라벨
+      ctx.beginPath();
+      ctx.moveTo(p.sx,p.sy);
+      ctx.lineTo(mx,p.arc.y+Math.sin(p.ang)*(or+12));
+      ctx.lineTo(ex,ty);
       ctx.strokeStyle=line;ctx.lineWidth=1.2;ctx.stroke();
-      ctx.beginPath();ctx.arc(sx,sy,1.8,0,Math.PI*2);ctx.fillStyle=colors[labels[idx]]||ink;ctx.fill();
-      const pct=Math.round(v/total*100);
-      const lbl=labels[idx];const col=colors[lbl]||ink;
-      const tx=right?ex+5:ex-5;
-      const topY=Math.max(14,my-7);const botY=Math.min(c.canvas.height-4,topY+14);
-      ctx.textAlign=right?'left':'right';
-      ctx.font=PRINT_MODE?'800 15px Segoe UI':'700 11px Segoe UI';ctx.fillStyle=col;ctx.fillText(lbl,tx,topY);
-      ctx.font=PRINT_MODE?'700 14px Segoe UI':'600 11px Segoe UI';ctx.fillStyle=ink;ctx.fillText(`${v}건 (${pct}%)`,tx,botY);
+      ctx.beginPath();ctx.arc(p.sx,p.sy,1.8,0,Math.PI*2);ctx.fillStyle=colors[labels[p.idx]]||ink;ctx.fill();
+      const pct=Math.round(p.v/total*100);
+      const lbl=labels[p.idx];const col=colors[lbl]||ink;
+      const tx=p.right?ex+5:ex-5;
+      ctx.textAlign=p.right?'left':'right';
+      ctx.font=PRINT_MODE?'800 15px Segoe UI':'700 11px Segoe UI';ctx.fillStyle=col;
+      ctx.fillText(lbl,tx,ty-7);
+      ctx.font=PRINT_MODE?'700 14px Segoe UI':'600 11px Segoe UI';ctx.fillStyle=ink;
+      ctx.fillText(`${p.v}건 (${pct}%)`,tx,ty+7);
     });
     ctx.restore();
   }};
@@ -1387,10 +1431,10 @@ function drawStatusChart(items){
     statusCanvas.style.cursor=pts.length?'pointer':'default';
   };
   const isMobile=window.innerWidth<=820;
-  const padXY=PRINT_MODE?110:(isMobile?38:80);const padTB=PRINT_MODE?50:(isMobile?28:40);
+  const padXY=PRINT_MODE?60:(isMobile?38:80);const padTB=PRINT_MODE?60:(isMobile?28:40);
   statusChart=new Chart(ctx,{type:'doughnut',
     data:{labels:labels.map((l,i)=>`${l} (${data[i]})`),datasets:[{data,backgroundColor:labels.map(l=>colors[l]||cssv('--euv')),borderColor:panel,borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{left:padXY,right:padXY,top:padTB,bottom:padTB}},cutout:'58%',
+    options:{responsive:true,maintainAspectRatio:PRINT_MODE?true:false,aspectRatio:1,layout:{padding:{left:padXY,right:padXY,top:padTB,bottom:padTB}},cutout:'58%',
       onClick:statusClickHandler,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed}건`}}}},
     plugins:[leaderLabels]});
@@ -1904,10 +1948,12 @@ function backupFields(){
 }
 function exportBackup(){
   const data=backupFields();
-  const upd=current()?current().updated:new Date().toISOString().slice(0,10);
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const stamp=`${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
-  a.href=url;a.download=`진선테크_백업_${upd}.json`;a.click();URL.revokeObjectURL(url);
+  a.href=url;a.download=`진선테크_백업_${stamp}.json`;a.click();URL.revokeObjectURL(url);
   toast('✅ 백업 완료');
 }
 function importBackup(file){
@@ -2155,14 +2201,30 @@ window.addEventListener('beforeprint',()=>{
     // 차트를 인쇄용 큰 폰트로 재생성
     const s=current();
     if(s){const items=liveItems().filter(i=>!i.removed);drawMonthChart(items);drawStatusChart(items);}
-    [monthChart,statusChart].forEach(ch=>{
-      if(ch){ch.options.maintainAspectRatio=false;ch.options.animation=false;ch.resize();ch.update('none');}
-    });
+    // 월별차트: 종횡비 자유
+    if(monthChart){monthChart.options.maintainAspectRatio=false;monthChart.options.animation=false;monthChart.resize();monthChart.update('none');}
+    // 도넛차트: responsive 끄고 캔버스를 정사각형으로 완전 고정 (왜곡 방지)
+    if(statusChart){
+      const cv=document.getElementById('statusChart');
+      statusChart.options.responsive=false;
+      statusChart.options.maintainAspectRatio=true;
+      statusChart.options.aspectRatio=1;
+      statusChart.options.animation=false;
+      // 캔버스 버퍼와 표시 크기 모두 정사각형으로 강제
+      cv.width=360;cv.height=360;
+      cv.style.width='360px';cv.style.height='360px';
+      statusChart.resize(360,360);
+      statusChart.update('none');
+    }
   }catch(_){}
 });
 window.addEventListener('afterprint',()=>{
   try{
     PRINT_MODE=false;
+    // 도넛 캔버스 인라인 크기 제거 후 복구
+    const cv=document.getElementById('statusChart');
+    if(cv){cv.style.width='';cv.style.height='';}
+    if(statusChart){statusChart.options.responsive=true;statusChart.options.maintainAspectRatio=false;}
     const s=current();
     if(s){const items=liveItems().filter(i=>!i.removed);drawMonthChart(items);drawStatusChart(items);}
     [monthChart,statusChart].forEach(ch=>{if(ch){ch.resize();ch.update('none');}});

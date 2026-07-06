@@ -842,6 +842,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     td .dt-edit, td .dt-delivery { display: none !important; }
     /* ★ 인쇄 시 캔버스 대신 이미지 표시 (화면 비율 그대로) */
     #monthChart, #statusChart { display: none !important; }
+    /* 대시보드 인쇄 시 임박 입고 테이블 제외 (캘린더까지만) */
+    #overview.active #urgentPanel { display: none !important; }
     .print-chart-img { display: block !important; margin: 0 auto; }
     #monthChartImg { width: 100% !important; max-width: 100% !important; height: auto !important; }
     /* 도넛: 화면 캔버스 비율(정사각형) 그대로, 세로 공간에 맞춤 */
@@ -915,6 +917,7 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
     <label class="btn ghost" id="restoreLabel" title="백업 JSON 파일로 수동 입력값 복원">♻ 데이터 복원<input type="file" id="restoreInput" accept=".json" style="display:none"></label>
     <button class="btn ghost danger" id="resetBtn">🗑 데이터 초기화</button>
     <button class="btn ghost" id="printBtn" title="현재 탭을 화면 그대로 PDF로 저장">📄 PDF 저장</button>
+    <button class="btn ghost" id="printBtn2" title="브라우저 인쇄 (Ctrl+P)">🖨 인쇄</button>
     <button class="btn ghost" id="themeBtn" title="배경 테마 전환">🌙 다크</button>
   </div>
 </header>
@@ -973,7 +976,7 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
         <div id="delCalGrid" style="width:100%"></div>
       </div>
     </div>
-        <div class="panel">
+        <div class="panel" id="urgentPanel">
       <h2>⏰ 임박 입고 (30일 이내)</h2>
       <div class="desc">오늘 기준 입고 예정일이 가까운 가공물 · <span class="urg red">7일↓ 긴급</span> · <span class="urg amber">14일↓ 주의</span></div>
       <div class="tablewrap"><table id="urgentTable"><thead></thead><tbody></tbody></table></div>
@@ -2650,6 +2653,12 @@ document.getElementById('printBtn').onclick=async()=>{
     // 현재 활성 탭(뷰) 캡처
     const view=document.querySelector('.view.active');
     if(!view){btn.textContent=origText;btn.disabled=false;return;}
+    // 대시보드: 임박 입고 테이블은 PDF에서 제외 (캘린더까지만)
+    let urgentHidden=null;
+    if(view.id==='overview'){
+      const up=document.getElementById('urgentPanel');
+      if(up){urgentHidden=up.style.display;up.style.display='none';}
+    }
     // 입력값을 텍스트로 임시 표시 (input/select는 캡처가 안 예쁘므로)
     const swaps=[];
     view.querySelectorAll('.dt-edit,.dt-delivery,.ssel,.vsel').forEach(inp=>{
@@ -2674,6 +2683,7 @@ document.getElementById('printBtn').onclick=async()=>{
     // 원복
     swaps.forEach(([inp,sp])=>{inp.style.display='';sp.remove();});
     wraps.forEach(([w,mh,ov])=>{w.style.maxHeight=mh;w.style.overflow=ov;});
+    if(urgentHidden!==null){const up=document.getElementById('urgentPanel');if(up)up.style.display=urgentHidden;}
     // jsPDF로 A4 가로에 배치 (여러 페이지 자동 분할)
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF('l','mm','a4');
@@ -2703,6 +2713,38 @@ document.getElementById('printBtn').onclick=async()=>{
     toast('❌ PDF 생성 실패: '+e.message);
   }
   btn.textContent=origText;btn.disabled=false;
+};
+// 🖨 브라우저 인쇄 (차트를 이미지로 변환 후 인쇄)
+document.getElementById('printBtn2').onclick=()=>{
+  // input/select 값을 텍스트로 표시
+  document.querySelectorAll('.dt-edit,.dt-delivery,.ssel,.vsel').forEach(inp=>{
+    let span=inp.nextElementSibling;
+    if(span&&span.classList.contains('print-val'))span.remove();
+    const sp=document.createElement('span');
+    sp.className='print-val';
+    sp.style.cssText='display:none;font-weight:700;font-size:10px';
+    sp.textContent=inp.tagName==='SELECT'?(inp.selectedOptions[0]?.text||inp.value||'-'):(inp.value||'-');
+    inp.after(sp);
+  });
+  let ps=document.getElementById('printValStyle');
+  if(!ps){
+    ps=document.createElement('style');ps.id='printValStyle';
+    ps.textContent='@media print{.print-val{display:inline!important}}';
+    document.head.appendChild(ps);
+  }
+  const isOverview=document.getElementById('overview').classList.contains('active');
+  if(isOverview){
+    // 차트를 화면 그대로 이미지로 변환
+    try{
+      const mc=document.getElementById('monthChart'),sc=document.getElementById('statusChart');
+      const mi=document.getElementById('monthChartImg'),si=document.getElementById('statusChartImg');
+      if(mc&&mi){mi.src=mc.toDataURL('image/png',1.0);mi.style.aspectRatio=(mc.width/mc.height);}
+      if(sc&&si){si.src=sc.toDataURL('image/png',1.0);si.style.aspectRatio=(sc.width/sc.height);}
+    }catch(_){}
+    setTimeout(()=>{window.print();},150);
+  } else {
+    window.print();
+  }
 };
 document.getElementById('themeBtn').onclick=()=>{const next=document.body.classList.contains('light')?'dark':'light';localStorage.setItem(THEME_KEY,next);applyTheme(next);};
 applyTheme(localStorage.getItem(THEME_KEY)||'dark');

@@ -394,13 +394,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     /* ★ 차트/캘린더 좌우 배치 + 겹침 방지 */
     .grid2 { grid-template-columns: 1fr 1fr !important; gap: 8px !important; display: grid !important; align-items: start; }
     .grid2 > .panel { min-width: 0; max-width: 100%; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
-    .chartbox { height: 300px !important; max-height: 300px !important; min-height: 300px !important; overflow: hidden !important; position: relative; width: 100% !important; display: block; }
-    .chartbox canvas { max-height: 300px !important; height: 300px !important; max-width: 100% !important; width: 100% !important; display: block !important; box-sizing: border-box; }
-    #monthChart { height: 300px !important; max-height: 300px !important; max-width: 100% !important; width: 100% !important; }
-    /* ★ 도넛은 정사각형 영역에서 그려 원형 유지 */
-    .statusbox { height: 300px !important; max-height: 300px !important; min-height: 300px !important; width: 300px !important; max-width: 300px !important; margin: 0 auto !important; overflow: visible !important; }
-    .statusbox canvas { height: 300px !important; max-height: 300px !important; width: 300px !important; max-width: 300px !important; margin: 0 auto; aspect-ratio: 1/1 !important; }
-    #statusChart { height: 300px !important; max-height: 300px !important; width: 300px !important; max-width: 300px !important; aspect-ratio: 1/1 !important; }
+    .chartbox { height: auto !important; max-height: none !important; min-height: 0 !important; overflow: visible !important; position: relative; width: 100% !important; display: block; }
+    /* 도넛: 인쇄 시 이미지로 표시 (statusbox는 auto) */
+    .statusbox { height: auto !important; max-height: none !important; min-height: 0 !important; width: 100% !important; max-width: 100% !important; }
     .desc { font-size: 8px; }
     h2 { font-size: 12px; }
     /* 캘린더 */
@@ -419,11 +415,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     th { background: #f0f0f0 !important; font-weight: 700; font-size: 8px; }
     /* 입고일정표 input 숨기고 텍스트 표시 */
     td .dt-edit, td .dt-delivery { display: none !important; }
-    /* ★ 인쇄 시 캔버스 대신 이미지 표시 (캔버스 렌더 실패 대비) */
+    /* ★ 인쇄 시 캔버스 대신 이미지 표시 (화면 비율 그대로) */
     #monthChart, #statusChart { display: none !important; }
     .print-chart-img { display: block !important; margin: 0 auto; }
     #monthChartImg { width: 100% !important; max-width: 100% !important; height: auto !important; }
-    #statusChartImg { width: 300px !important; max-width: 300px !important; height: 300px !important; }
+    /* 도넛: 화면 캔버스 비율(정사각형) 그대로, 세로 공간에 맞춤 */
+    #statusChartImg { display: block !important; height: 320px !important; width: auto !important; max-width: 100% !important; margin: 0 auto !important; }
   }
   .print-chart-img { display: none; }
 
@@ -2237,69 +2234,22 @@ document.getElementById('printBtn').onclick=()=>{
     ps.textContent='@media print{.print-val{display:inline!important}}';
     document.head.appendChild(ps);
   }
-  // 2) 현재 대시보드 탭이면 차트를 인쇄용으로 미리 준비 후 인쇄
+  // 2) 대시보드 탭이면: 화면에 보이는 차트를 "그 상태 그대로" 이미지로 캡처
   const isOverview=document.getElementById('overview').classList.contains('active');
   if(isOverview){
-    PRINT_MODE=true;
-    const cs=current();
-    if(cs){const items=liveItems().filter(i=>!i.removed);drawMonthChart(items);drawStatusChart(items);}
-    if(monthChart){monthChart.options.maintainAspectRatio=false;monthChart.resize();monthChart.update('none');}
-    if(statusChart){
-      const cv=document.getElementById('statusChart');
-      const box=cv.closest('.statusbox');
-      // 컨테이너를 정사각형으로 만들고 responsive가 알아서 맞추게 함
-      if(box){box.style.width='300px';box.style.height='300px';}
-      cv.style.width='300px';cv.style.height='300px';
-      statusChart.options.responsive=true;
-      statusChart.options.maintainAspectRatio=false;
-      statusChart.resize();statusChart.update('none');
-    }
-    // 캔버스를 이미지로 변환 (인쇄 엔진이 캔버스를 못 그리는 경우 대비)
-    setTimeout(()=>{
-      try{
-        const mc=document.getElementById('monthChart'),sc=document.getElementById('statusChart');
-        const mi=document.getElementById('monthChartImg'),si=document.getElementById('statusChartImg');
-        if(mc&&mi)mi.src=mc.toDataURL('image/png',1.0);
-        if(sc&&si)si.src=sc.toDataURL('image/png',1.0);
-      }catch(_){}
-      setTimeout(()=>{window.print();},200);
-    },350);
+    // 크기 조작 없이 현재 화면 캔버스를 그대로 이미지화
+    try{
+      const mc=document.getElementById('monthChart'),sc=document.getElementById('statusChart');
+      const mi=document.getElementById('monthChartImg'),si=document.getElementById('statusChartImg');
+      if(mc&&mi){mi.src=mc.toDataURL('image/png',1.0);mi.style.aspectRatio=(mc.width/mc.height);}
+      if(sc&&si){si.src=sc.toDataURL('image/png',1.0);si.style.aspectRatio=(sc.width/sc.height);}
+    }catch(_){}
+    setTimeout(()=>{window.print();},150);
   } else {
     window.print();
   }
 };
-// 인쇄 직전/직후 차트 리사이즈 (겹침 방지 핵심)
-window.addEventListener('beforeprint',()=>{
-  try{
-    PRINT_MODE=true;
-    const s=current();
-    if(s){const items=liveItems().filter(i=>!i.removed);drawMonthChart(items);drawStatusChart(items);}
-    if(monthChart){monthChart.options.maintainAspectRatio=false;monthChart.options.animation=false;monthChart.resize();monthChart.update('none');}
-    if(statusChart){
-      const cv=document.getElementById('statusChart');
-      const box=cv.closest('.statusbox');
-      if(box){box.style.width='300px';box.style.height='300px';}
-      cv.style.width='300px';cv.style.height='300px';
-      statusChart.options.responsive=true;
-      statusChart.options.maintainAspectRatio=false;
-      statusChart.options.animation=false;
-      statusChart.resize();
-      statusChart.update('none');
-    }
-  }catch(_){}
-});
-window.addEventListener('afterprint',()=>{
-  try{
-    PRINT_MODE=false;
-    // 도넛 캔버스/컨테이너 인라인 크기 제거 후 복구
-    const cv=document.getElementById('statusChart');
-    if(cv){cv.style.width='';cv.style.height='';const box=cv.closest('.statusbox');if(box){box.style.width='';box.style.height='';}}
-    if(statusChart){statusChart.options.responsive=true;statusChart.options.maintainAspectRatio=false;}
-    const s=current();
-    if(s){const items=liveItems().filter(i=>!i.removed);drawMonthChart(items);drawStatusChart(items);}
-    [monthChart,statusChart].forEach(ch=>{if(ch){ch.resize();ch.update('none');}});
-  }catch(_){}
-});
+// 인쇄 시 차트 크기 조작 안 함 - 화면 그대로 이미지로 출력됨
 document.getElementById('themeBtn').onclick=()=>{const next=document.body.classList.contains('light')?'dark':'light';localStorage.setItem(THEME_KEY,next);applyTheme(next);};
 applyTheme(localStorage.getItem(THEME_KEY)||'dark');
 // 시스템 업데이트 날짜 표시

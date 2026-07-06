@@ -415,8 +415,21 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     th { background: #f0f0f0 !important; font-weight: 700; font-size: 8px; }
     /* 입고일정표 input 숨기고 텍스트 표시 */
     td .dt-edit, td .dt-delivery { display: none !important; }
+    /* ★ 인쇄 시 캔버스 대신 이미지 표시 (캔버스 렌더 실패 대비) */
+    #monthChart, #statusChart { display: none !important; }
+    .print-chart-img { display: block !important; margin: 0 auto; }
+    #monthChartImg { width: 100% !important; max-width: 100% !important; height: auto !important; }
+    #statusChartImg { width: 300px !important; max-width: 300px !important; height: 300px !important; }
   }
-  .print-title { display: none; }
+  .print-chart-img { display: none; }
+
+  .sys-ver{
+    font-size:11px;color:var(--muted);font-weight:600;
+    padding:5px 12px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel2);white-space:nowrap;align-self:flex-start;
+  }
+  .sys-ver b{color:var(--accent);font-weight:800}
+  @media(max-width:820px){.sys-ver{font-size:9.5px;padding:4px 8px;order:3}}
 
 </style>
 <!-- ===== Firebase (실시간 동기화) ===== -->
@@ -464,6 +477,7 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
       <h1 id="mainTitle">EUV / H2D 일정 관리 시스템</h1>
       <div class="sub">진선테크 · Frame 입고일정 기반 가공물 입고 자동화 &amp; 변동 추적 · <span id="syncStatus" style="font-weight:700"><span style="font-size:16px;vertical-align:middle;line-height:1">●</span> 로컬 저장</span></div>
     </div>
+    <div class="sys-ver" id="sysVer" title="시스템 마지막 업데이트일"></div>
   </div>
   <div class="toolbar">
     <button class="btn ghost" id="undoBtn" title="되돌리기 (Ctrl+Z)" disabled>↶ 되돌리기</button>
@@ -497,13 +511,13 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
       <div class="panel">
         <h2>📦 월별 입고 물량 (입고 예정일 기준)</h2>
         <div class="desc">Frame 입고일정 기준 · EUV / H2D 가공물 별도 집계</div>
-        <div class="chartbox"><canvas id="monthChart"></canvas></div>
+        <div class="chartbox"><canvas id="monthChart"></canvas><img id="monthChartImg" class="print-chart-img" alt=""></div>
         <div class="legend"><span><i class="dot" style="background:var(--euv)"></i>EUV</span><span><i class="dot" style="background:var(--h2d)"></i>H2D</span></div>
       </div>
       <div class="panel">
         <h2>🏷 진행 상태 분포</h2>
         <div class="desc">미발주=Not Start, 발주=제작중/납품완료 · <span style="color:var(--danger);font-weight:700">Shortage</span>=입고예정일 경과(미납품)</div>
-        <div class="chartbox statusbox"><canvas id="statusChart"></canvas></div>
+        <div class="chartbox statusbox"><canvas id="statusChart"></canvas><img id="statusChartImg" class="print-chart-img" alt=""></div>
       </div>
     </div>
     <!-- 입고캘린더 | 납품캘린더 -->
@@ -687,6 +701,7 @@ const FIREBASE_READY = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf(
 <script>
 const STORE_KEY='jsForecastSys_v4';
 let PRINT_MODE=false;
+const SYSTEM_UPDATED='2026-07-06'; // 시스템 마지막 업데이트일 (코드 수정 시 갱신)
 const STORE_KEY_OLD='jsForecastSys_v3';
 const MS=86400000;
 let DB=load();
@@ -2206,8 +2221,16 @@ document.getElementById('printBtn').onclick=()=>{
       cv.width=300;cv.height=300;cv.style.width='300px';cv.style.height='300px';
       statusChart.resize(300,300);statusChart.update('none');
     }
-    // 차트 렌더 완료 대기 후 인쇄
-    setTimeout(()=>{window.print();},350);
+    // 캔버스를 이미지로 변환 (인쇄 엔진이 캔버스를 못 그리는 경우 대비)
+    setTimeout(()=>{
+      try{
+        const mc=document.getElementById('monthChart'),sc=document.getElementById('statusChart');
+        const mi=document.getElementById('monthChartImg'),si=document.getElementById('statusChartImg');
+        if(mc&&mi)mi.src=mc.toDataURL('image/png',1.0);
+        if(sc&&si)si.src=sc.toDataURL('image/png',1.0);
+      }catch(_){}
+      setTimeout(()=>{window.print();},200);
+    },350);
   } else {
     window.print();
   }
@@ -2246,6 +2269,8 @@ window.addEventListener('afterprint',()=>{
 });
 document.getElementById('themeBtn').onclick=()=>{const next=document.body.classList.contains('light')?'dark':'light';localStorage.setItem(THEME_KEY,next);applyTheme(next);};
 applyTheme(localStorage.getItem(THEME_KEY)||'dark');
+// 시스템 업데이트 날짜 표시
+(function(){const sv=document.getElementById('sysVer');if(sv)sv.innerHTML=`🛠 시스템 업데이트: <b>${SYSTEM_UPDATED}</b>`;})();
 /* 되돌리기/다시실행 */
 document.getElementById('undoBtn').onclick=doUndo;
 document.getElementById('redoBtn').onclick=doRedo;

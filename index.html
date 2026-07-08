@@ -2088,10 +2088,22 @@ function renderSchedule(){
     const arrivalCell = i.removed
       ? `<span style="color:var(--dim)">${i.arrival}</span>`
       : `<input class="dt-edit ${i.arrivalEdited?'edited':''}${i.staleArrival?' stale':''}" type="date" data-k="${k}" value="${i.arrival}"><span class="edit-mark" data-hk="${k}" title="수정 히스토리 ${histN}건">${i.arrivalEdited?' ✎':''}${histN?`<span class="hcnt">${histN}</span>`:''}</span>${_histBadgeTxt}${i.arrivalEdited?`<span class="restore" data-rk="${k}" title="기본값으로 복구">↺</span>`:''}${i.staleArrival?`<span class="stale-flag" data-sk="${k}" title="forecast 기준 입고일이 ${i.staleFrom}→${i.staleTo} 로 변경됨. 클릭 시 기준값(${i.staleTo})으로 갱신">⚠기준변동</span>`:''}`;
+    // Frame 입고 히스토리 배지 (입고예정일처럼)
+    const frameHistN=(DB.histories[k]||[]).filter(h=>h.field==='Frame 입고').length;
+    const _frameHistDiff=(()=>{
+      const h=(DB.histories[k]||[]).filter(e=>e.field==='Frame 입고'&&/^\d{4}-\d{2}-\d{2}$/.test(e.old||'')&&/^\d{4}-\d{2}-\d{2}$/.test(e.new||''));
+      if(!h.length)return null;
+      let total=0;h.forEach(e=>{total+=Math.round((new Date(e.new)-new Date(e.old))/(1000*60*60*24));});
+      return total;
+    })();
+    const _frameBadgeTxt=_frameHistDiff==null?'':_frameHistDiff>0
+      ?`<span style="font-size:9px;color:var(--danger);margin-left:2px;font-weight:700">+${_frameHistDiff}일</span>`
+      :_frameHistDiff<0?`<span style="font-size:9px;color:var(--ok);margin-left:2px;font-weight:700">${_frameHistDiff}일</span>`:'';
+    const frameCell=`${i.frame||'-'}${frameHistN?`<span class="edit-mark" data-hk="${k}" data-hf="Frame 입고" title="Frame 입고 히스토리 ${frameHistN}건">✎<span class="hcnt">${frameHistN}</span></span>${_frameBadgeTxt}`:''}`;
     const vendorCell = i.removed ? `<span style="color:var(--dim)">${i.vendor||'-'}</span>` : `<select class="vsel" data-k="${k}"${noVendor}>${vendorOpts}</select>`;
     return `<tr class="${rowCls}">
       <td>${tagCell}</td>
-      <td>${i.spec||'-'}</td><td>${i.tag}</td><td>${i.item}</td><td>${statusDisp}</td><td>${i.frame}</td>
+      <td>${i.spec||'-'}</td><td>${i.tag}</td><td>${i.item}</td><td>${statusDisp}</td><td style="white-space:nowrap">${frameCell}</td>
       <td>${arrivalCell}</td>
       <td class="urg ${ddCls}">${ddTxt}</td>
       <td>${deliveryCell}</td>

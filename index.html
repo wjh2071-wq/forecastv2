@@ -665,6 +665,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .dt-edit{background:var(--panel2);border:1px solid var(--line);color:var(--accent);font-weight:700;padding:5px 7px;border-radius:7px;font-size:12px;font-family:inherit;}
   .dt-edit.edited{border-color:var(--warn);color:var(--warn)}
   .dt-edit.stale{border-color:var(--danger);color:var(--danger);box-shadow:0 0 0 1px var(--danger)}
+  .deliv-warn{display:inline-block;margin-left:4px;font-size:9.5px;font-weight:800;color:#fff;background:var(--danger);border-radius:4px;padding:1px 5px;cursor:help;animation:warnBlink 1.5s ease-in-out infinite}
+  @keyframes warnBlink{0%,100%{opacity:1}50%{opacity:.55}}
   .stale-flag{display:inline-block;margin-left:5px;font-size:9.5px;font-weight:800;color:#fff;background:var(--danger);padding:1px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;vertical-align:middle;animation:pulseRed 1.4s ease-in-out infinite}
   .stale-flag:hover{filter:brightness(1.15)}
   .edit-mark{margin-left:6px;cursor:pointer;color:var(--warn);font-weight:700;user-select:none}
@@ -1629,7 +1631,7 @@ function ingest(parsed){
   let newCnt=0,revivedCnt=0,carriedCnt=0,staleCnt=0;
   items.forEach(it=>{
     const k=keyOf(it);const r=DB.registry[k];
-    const snapshot={type:it.type,spec:it.spec,tag:it.tag,item:it.item,frame:it.frame,arrivalAuto:it.arrivalAuto,lead:it.lead,build:it.build,test:it.test,ex:it.ex,lastSeen:month};
+    const snapshot={type:it.type,spec:it.spec,tag:it.tag,item:it.item,frame:it.frame,arrivalAuto:it.arrivalAuto,deliveryAuto:it.deliveryAuto,lead:it.lead,build:it.build,test:it.test,ex:it.ex,lastSeen:month};
     if(!r){DB.registry[k]={...snapshot,firstSeen:month,removed:false,purged:false};it._isNew=true;newCnt++;if(prev)pushHistory(k,'PJT 상태','-','신규('+month+')');}
     else{
       if(r.removed){r.removed=false;delete r.removedAt;revivedCnt++;pushHistory(k,'PJT 상태','삭제됨','부활('+month+')');}
@@ -1648,6 +1650,19 @@ function ingest(parsed){
             pushHistory(k,'입고예정일(기준)',r.arrivalAuto,it.arrivalAuto);
           }
         }
+        // Frame 입고일자 변동 히스토리
+        if(r.frame && it.frame && r.frame!==it.frame){
+          pushHistory(k,'Frame 입고',r.frame,it.frame);
+        }
+        // 납품일정(H2D 자재) 변동 히스토리 - 수기 수정 안 한 경우만 자동 이력
+        const rDel=(r.deliveryAuto&&r.deliveryAuto!=='-')?r.deliveryAuto:'';
+        const itDel=(it.deliveryAuto&&it.deliveryAuto!=='-')?it.deliveryAuto:'';
+        if(itDel && rDel!==itDel && !man.delivery){
+          pushHistory(k,'납품일정',rDel||'(없음)',itDel);
+        }
+      } else if(r.frame && it.frame && r.frame!==it.frame){
+        // 수기 입력이 없는 항목도 Frame 변동은 기록
+        pushHistory(k,'Frame 입고',r.frame,it.frame);
       }
       Object.assign(r,snapshot,{purged:false});
     }
@@ -2028,9 +2043,18 @@ function renderSchedule(){
     const _delBadgeTxt=_delHistDiff==null?'':_delHistDiff>0
       ?`<span style="font-size:9px;color:var(--danger);margin-left:2px;font-weight:700">+${_delHistDiff}일</span>`
       :_delHistDiff<0?`<span style="font-size:9px;color:var(--ok);margin-left:2px;font-weight:700">${_delHistDiff}일</span>`:'';
+    // ⚠ 납품일정이 입고 예정일보다 빠르면 경고 (가공물이 입고되기 전에 납품 불가)
+    let _delWarnTxt='';
+    if(!i.removed && i.delivery && i.arrival){
+      const dv=parseDate(i.delivery), av=parseDate(i.arrival);
+      if(dv&&av&&dv<av){
+        const gap=Math.round((av-dv)/(1000*60*60*24));
+        _delWarnTxt=`<span class="deliv-warn" title="납품일정(${i.delivery})이 입고 예정일(${i.arrival})보다 ${gap}일 빠릅니다. 가공물 입고 전 납품은 불가능합니다.">⚠ 일정오류</span>`;
+      }
+    }
     const deliveryCell=i.removed
       ?`<span style="color:var(--dim)">${i.delivery||'-'}</span>`
-      :`<input class="dt-delivery ${i.deliveryEdited?'edited':''}" type="date" data-k="${k}" value="${i.delivery||''}"><span class="edit-mark" data-hk="${k}" title="납품일정 히스토리 ${delivHistN}건">${i.deliveryEdited?' ✎':''}${delivHistN?`<span class="hcnt">${delivHistN}</span>`:''}</span>${_delBadgeTxt}${i.deliveryEdited?`<span class="restore-delivery" data-rk="${k}" title="기본값 복구">↺</span>`:''}`;
+      :`<input class="dt-delivery ${i.deliveryEdited?'edited':''}" type="date" data-k="${k}" value="${i.delivery||''}"><span class="edit-mark" data-hk="${k}" title="납품일정 히스토리 ${delivHistN}건">${i.deliveryEdited?' ✎':''}${delivHistN?`<span class="hcnt">${delivHistN}</span>`:''}</span>${_delBadgeTxt}${_delWarnTxt}${i.deliveryEdited?`<span class="restore-delivery" data-rk="${k}" title="기본값 복구">↺</span>`:''}`;
     const vendorOpts=['<option value="">선택</option>',...i.vendorList.map(v=>`<option value="${esc(v)}" ${i.vendor===v?'selected':''}>${esc(v)}</option>`)].join('');
     const noVendor=i.vendorList.length===0?' title="경험 업체 없음"':'';
     const STATUS_OPTS=['해당없음','가공물 제작','가공물 입고','elec assy','제작완료','납품완료'];
